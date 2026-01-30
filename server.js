@@ -33,33 +33,71 @@ app.post('/webhook', async (req, res) => {
     // Acknowledge webhook immediately
     res.status(200).json({ status: 'received', message: 'Processing...' });
 
-    // Spawn subagent to handle the message
+    // Each subscriber gets their own persistent subagent session
     const subagentLabel = `manychat-${subscriber_id}`;
-    const taskMessage = `User message: ${message_text}`;
 
-    // Call Clawdbot gateway to spawn session
-    const spawnResponse = await fetch(`${CLAWDBOT_GATEWAY_URL}/api/sessions/spawn`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        task: taskMessage,
-        label: subagentLabel,
-        cleanup: 'delete', // Clean up session after completion
-        timeoutSeconds: 60 // 60 second timeout
-      })
-    });
-
-    if (!spawnResponse.ok) {
-      throw new Error(`Failed to spawn subagent: ${spawnResponse.statusText}`);
+    // Check if session already exists
+    let sessionExists = false;
+    try {
+      const listResponse = await fetch(`${CLAWDBOT_GATEWAY_URL}/api/sessions/list?limit=100`);
+      if (listResponse.ok) {
+        const sessions = await listResponse.json();
+        sessionExists = sessions.some(s => s.label === subagentLabel);
+        console.log(`Session for ${subagentLabel} exists:`, sessionExists);
+      }
+    } catch (error) {
+      console.error('Error checking for existing session:', error);
     }
 
-    const spawnData = await spawnResponse.json();
-    console.log('Subagent spawned:', spawnData);
+    let subagentResponse;
 
-    // Wait for subagent to complete (poll for result)
-    const subagentResponse = await waitForSubagentResult(subagentLabel, 55000);
+    if (sessionExists) {
+      // Send message to existing session (keeps memory)
+      console.log('Sending message to existing session');
+      const sendResponse = await fetch(`${CLAWDBOT_GATEWAY_URL}/api/sessions/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          label: subagentLabel,
+          message: message_text,
+          timeoutSeconds: 60
+        })
+      });
+
+      if (!sendResponse.ok) {
+        throw new Error(`Failed to send to session: ${sendResponse.statusText}`);
+      }
+
+      // Wait for response from existing session
+      subagentResponse = await waitForSubagentResult(subagentLabel, 55000);
+    } else {
+      // Spawn new session for this subscriber
+      console.log('Spawning new session for subscriber');
+      const spawnResponse = await fetch(`${CLAWDBOT_GATEWAY_URL}/api/sessions/spawn`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task: `User message: ${message_text}`,
+          label: subagentLabel,
+          cleanup: 'keep', // Keep session alive for unlimited memory
+          timeoutSeconds: 60
+        })
+      });
+
+      if (!spawnResponse.ok) {
+        throw new Error(`Failed to spawn subagent: ${spawnResponse.statusText}`);
+      }
+
+      const spawnData = await spawnResponse.json();
+      console.log('New session spawned:', spawnData);
+
+      // Wait for subagent to respond
+      subagentResponse = await waitForSubagentResult(subagentLabel, 55000);
+    }
 
     if (subagentResponse) {
       // Send response back to ManyChat

@@ -77,11 +77,19 @@ Health check endpoint.
 
 1. ManyChat sends POST to `/webhook` with message data
 2. Server extracts message text and subscriber ID
-3. Server calls Clawdbot's `sessions_spawn` to create subagent
+3. Server checks if a session already exists for this subscriber
+   - **If yes**: Sends message to existing session (keeps full conversation memory)
+   - **If no**: Spawns new subagent session for this subscriber
 4. Subagent processes the message and generates response
 5. Server sends response back to ManyChat using SendContent API
 6. Message appears in ManyChat conversation
 
-## Subagent Integration
+## Unlimited Conversation Memory
 
-The subagent label is set to `manychat-handler`. Configure your subagent with appropriate instructions for handling customer messages.
+Each subscriber gets their own **persistent subagent session** that remembers everything:
+- Session label: `manychat-{subscriber_id}`
+- Sessions are never deleted (cleanup: 'keep')
+- Full conversation history is maintained
+- The subagent remembers previous context, preferences, and conversations
+
+This means if a user says "My name is Alice", then later says "What's my name?", the subagent will remember it's Alice.
