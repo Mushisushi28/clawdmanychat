@@ -5,8 +5,29 @@ const port = process.env.PORT || 3000;
 // Middleware to parse JSON bodies
 app.use(express.json());
 
+// Function to forward data to Clawdbot
+async function forwardToClawdbot(data) {
+  const clawdbotWebhookUrl = 'https://your-clawdbot-webhook-url'; // Replace with your actual Clawdbot webhook URL
+  
+  try {
+    const response = await fetch(clawdbotWebhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Add any authentication headers if needed
+      },
+      body: JSON.stringify(data)
+    });
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error forwarding to Clawdbot:', error);
+    throw error;
+  }
+}
+
 // Webhook endpoint
-app.post('/webhook', (req, res) => {
+app.post('/webhook', async (req, res) => {
   try {
     const data = req.body;
     console.log('Received ManyChat webhook data:', {
@@ -15,14 +36,19 @@ app.post('/webhook', (req, res) => {
       timestamp: data.timestamp
     });
 
-    // Here you can add your processing logic
-    // For example: handle the message_text and respond appropriately
+    // Forward data to Clawdbot
+    try {
+      const clawdbotResponse = await forwardToClawdbot(data);
+      console.log('Clawdbot processed:', clawdbotResponse);
+    } catch (error) {
+      console.error('Forwarding to Clawdbot failed:', error);
+    }
     
     // Send success response to ManyChat
     res.json({ 
       status: 'success',
       received: true,
-      message: 'Webhook received successfully'
+      message: 'Webhook received and forwarded to Clawdbot'
     });
   } catch (error) {
     console.error('Error processing webhook:', error);
