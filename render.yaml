@@ -1,0 +1,30 @@
+# Render deployment configuration
+name: manychat-webhook
+region: aws-us-east-1
+runtime: node
+runtimeVersion: 18.17.0
+buildCommand: npm install
+startCommand: node webhook-server.js
+healthCheck:
+  path: /health
+  intervalSeconds: 30
+  timeoutSeconds: 10
+  successStatuses: [200]
+  failedStatuses: [500, 502, 503, 504]
+  responseTimeoutSeconds: 5
+env: []
+  # You can add environment variables here if needed
+  # - key: MANYCHAT_API_KEY
+  #   value: your-api-key-here
+  # - key: SECRET_TOKEN
+  #   value: your-secret-token-here
+service:
+  name: manychat-webhook
+  type: web
+  healthCheck:
+    path: /health
+    intervalSeconds: 30
+    timeoutSeconds: 10
+    successStatuses: [200]
+    failedStatuses: [500, 502, 503, 504]
+    responseTimeoutSeconds: 5
