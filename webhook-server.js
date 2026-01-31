@@ -5,9 +5,9 @@ const port = process.env.PORT || 3000;
 // Middleware to parse JSON bodies
 app.use(express.json());
 
-// Function to forward data to Clawdbot
+// Function to forward data to Clawdbot (current instance)
 async function forwardToClawdbot(data) {
-  const clawdbotWebhookUrl = 'https://your-clawdbot-webhook-url'; // Replace with your actual Clawdbot webhook URL
+  const clawdbotWebhookUrl = 'http://localhost:3000/webhook'; // Using local webhook receiver
   
   try {
     const response = await fetch(clawdbotWebhookUrl, {
